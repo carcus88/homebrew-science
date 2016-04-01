@@ -31,7 +31,7 @@ class Pspp < Formula
 
   if build.with? "gui"
     depends_on "gtk+"
-    depends_on "gtksourceview"
+    depends_on "gtksourceview3"
     depends_on "freetype"
     depends_on "fontconfig"
   end

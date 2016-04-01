@@ -2,19 +2,21 @@ class Root6 < Formula
   # in order to update, simply change version number and update sha256
   version_number = "6.06.02"
   desc "Object oriented framework for large scale data analysis"
-  homepage "http://root.cern.ch"
+  homepage "https://root.cern.ch"
   url "https://root.cern.ch/download/root_v#{version_number}.source.tar.gz"
   mirror "https://fossies.org/linux/misc/root_v#{version_number}.source.tar.gz"
   version version_number
   sha256 "18a4ce42ee19e1a810d5351f74ec9550e6e422b13b5c58e0c3db740cdbc569d1"
+  revision 1
   head "http://root.cern.ch/git/root.git"
 
   bottle do
-    sha256 "1fd03c25e6b84679d3003fc0f495929de5831fd37e625577b7ad5fbc52beaa37" => :el_capitan
-    sha256 "31b8ba47bbd341737da2083b0bd72ac927b8e56e48b2b7c4b21bcc618a578c2c" => :yosemite
-    sha256 "01b35ce68155fc331a0145a009416f07dbfcee9391d5a5d4d0e88ed890951d20" => :mavericks
+    sha256 "e0a7b1dc3d5224503f4afe8fa0cfebb331eea24fc8f735aa1e697a0e3cf4a6cc" => :el_capitan
+    sha256 "a39f5f4a71786be1996ca288e0ac392047658d0deba847dd3783c8f8e2769452" => :yosemite
+    sha256 "ed23f435c3b645b2c41d0eb46d406ffff0a4c270a1884cca49de1c35ff3f1fc7" => :mavericks
   end
 
+  depends_on "cmake" => :build
   depends_on "xrootd" => :optional
   depends_on "openssl" => :recommended # use homebrew's openssl
   depends_on :python => :recommended # make sure we install pyroot
@@ -26,7 +28,7 @@ class Root6 < Formula
   needs :cxx11
 
   def config_opt(opt, pkg = opt)
-    "--#{(build.with? pkg) ? "enable" : "disable"}-#{opt}"
+    "-D#{opt}=#{(build.with? pkg) ? "ON" : "OFF"}"
   end
 
   def install
@@ -38,22 +40,31 @@ class Root6 < Formula
                   "man/man1/setup-pq2.1", "README/INSTALL", "README/README"],
       /bin.thisroot/, "libexec/thisroot"
 
+    # ROOT does the following things by default that `brew audit` doesn't like:
+    #  1. Installs libraries to lib/
+    #  2. Installs documentation to man/
+    # Homebrew expects:
+    #  1. Libraries in lib/<some_folder>
+    #  2. Documentation in share/man
+    # so we set some flags to match what Homebrew expects
     args = %W[
-      --prefix=#{prefix}
-      --elispdir=#{share}/emacs/site-lisp/#{name}
-      --enable-builtin-freetype
-      --enable-roofit
-      --enable-minuit2
+      -Dgnuinstall=ON
+      -DCMAKE_INSTALL_ELISPDIR=#{share}/emacs/site-lisp/#{name}
+      -Dbuiltin_freetype=ON
+      -Droofit=ON
+      -Dminuit2=ON
       #{config_opt("python")}
       #{config_opt("ssl", "openssl")}
       #{config_opt("xrootd")}
       #{config_opt("mathmore", "gsl")}
     ]
 
-    system "./configure", "--help"
-    system "./configure", *args
-    system "make"
-    system "make", "install"
+    # ROOT forbids running CMake in the root of the source directory,
+    # so run in a subdirectory (there's already one called `build`)
+    mkdir "build_dir" do
+      system "cmake", "..", *(std_cmake_args + args)
+      system "make", "install"
+    end
 
     libexec.mkpath
     mv Dir["#{bin}/*.*sh"], libexec
